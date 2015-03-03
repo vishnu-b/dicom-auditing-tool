@@ -11,7 +11,7 @@ from PIL import ImageTk, Image
 import time, datetime
 import shutil
 import sqlite3
-
+from contextlib import contextmanager
 class AuditTool(object):
 
     def __init__(self, master):
@@ -148,6 +148,22 @@ class AuditTool(object):
             self.clinic_var.set(clinic_name)
         conn.commit()
         conn.close()
+
+    @contextmanager
+    def network_share_auth(self, share, username=None, password=None, drive_letter='P'):
+        """Context manager that mounts the given share using the given
+        username and password to the given drive letter when entering
+        the context and unmounts it when exiting."""
+        cmd_parts = ["NET USE %s: %s" % (drive_letter, share)]
+        if password:
+            cmd_parts.append(password)
+        if username:
+            cmd_parts.append("/USER:%s" % username)
+        os.system(" ".join(cmd_parts))
+        try:
+            yield
+        finally:
+            os.system("NET USE %s: /DELETE" % drive_letter)
 
     def combobox_handler(self, event):
         """ Populates the canvas area with parameters that are assigned to the selected report type """
@@ -373,8 +389,11 @@ class AuditTool(object):
     def sendFile(self, file_to_send):
         """sends the file to the shared folder on the network"""
         try:
-            shutil.copy(file_to_send, '\\\\10.42.52.39\\Clinic-Audit')
-            tkMessageBox.showinfo("Report Generated", str(self.count) + " records exported.")
+            # shutil.copy(file_to_send, '\\\\10.42.52.39\\Clinic-Audit')
+            # shutil.copy(file_to_send, '\\\\192.168.0.105\\Share\\Clinic-Audit')
+	        with self.network_share_auth("\\\\192.168.0.105\\Share\\Clinic-Audit", "Technowell", "9014084202"):
+	             shutil.copy(file_to_send, "P:\\")
+	        tkMessageBox.showinfo("Report Generated", str(self.count) + " records exported.")
         except:
             tkMessageBox.showwarning("File not sent!", "Not able to send the file. Make sure your system is connected to the local network and try again.")
         finally:
